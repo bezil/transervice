@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from googletrans import Translator
 from gtts import gTTS
@@ -6,6 +6,8 @@ from flask_apscheduler import APScheduler
 import uuid
 import os
 import time
+import subprocess
+
 
 app = Flask(__name__)
 translator = Translator()
@@ -27,6 +29,25 @@ CORS(app, resources={r"/*": {"origins": [
 # Path to save the generated TTS audio files
 AUDIO_DIR = "static/translations"
 os.makedirs(AUDIO_DIR, exist_ok=True)
+
+REPORT_PATH = "static/bandit_report.html"
+
+@app.route("/generate_report")
+def generate_report():
+    try:
+        subprocess.run([
+            "bandit", "-r", ".", "-f", "html", "-o", REPORT_PATH
+        ], check=True)
+        return "Report generated. Visit / to view it."
+    except subprocess.CalledProcessError as e:
+        return f"Bandit scan failed: {e}", 500
+
+@app.route("/")
+def serve_report():
+    if os.path.exists(REPORT_PATH):
+        return send_file(REPORT_PATH)
+    return "Report not found. Visit /generate_report to create it."
+
 
 @app.route('/translate', methods=['POST'])
 def translate_text():
